@@ -619,7 +619,7 @@ button.unit:focus-visible,button.hand-card:focus-visible,.node-target:focus-visi
   overflow:auto;box-sizing:border-box;border:2px solid var(--ink);
   padding:0;background:#f7f1e5;color:var(--ink);
   box-shadow:7px 7px 0 #757f73;
-  animation:restnetz-dialog-appear .18s ease-out both;
+  animation:none;opacity:1;
 }
 .discard-dialog::backdrop{background:rgba(15,26,23,.72)}
 .discard-dialog-body{padding:23px 24px;display:flex;flex-direction:column;gap:13px}
@@ -805,4 +805,69 @@ html{scrollbar-gutter:stable;overflow-anchor:none}
 .playtest-gate[data-expired="true"] .playtest-error{font-weight:700}
 @media(max-width:550px){
   .playtest-clock{min-width:92px;font-size:11px;padding:6px 8px}
+}
+
+/* Bei sechs Spalten darf die Animation die letzte Karte nicht seitlich
+   drehen oder vorübergehend außerhalb des Handbereichs schieben. */
+.hand-card.drawn-in{animation-name:restnetz-card-dealt-mobile}
+
+/* Lesbarkeit auch in der Versorgungsphase: nicht anwählbare Karten
+   behalten Kontrast, der Status steht bereits auf der Karte. */
+.hand-card:disabled,.hand-card.unavailable{opacity:1}
+
+/* Kompakte Handkarten: gleiche Höhe unabhängig vom längsten Effekttext.
+   Die volle Karte steht per Tooltip/Screenreader und in der Auswahl zur
+   Verfügung; das Raster zeigt nur eine kurze Zusammenfassung. */
+.hand{align-items:start}
+.hand-card{
+  width:100%;height:156px;min-height:156px;max-height:156px;
+  min-width:0;max-width:190px;padding:7px 9px;overflow:hidden;
+  justify-content:flex-start;align-self:start
+}
+.hand-card .hand-name{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  line-clamp:2;overflow:hidden;font-size:14px;line-height:1.18;
+  margin:4px 0 4px;max-height:2.36em
+}
+.hand-card .ability-flag{font-size:9px;margin-top:3px}
+.hand-card .ability-line{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  line-clamp:2;overflow:hidden;font-size:10px;line-height:1.27;
+  max-height:2.54em;margin-top:1px
+}
+.hand-card .tap-label{
+  width:100%;font-size:9px;line-height:1.15;margin-top:auto;
+  padding-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+/* Sechs Slots ab 1101px, auch bei nur fünf Karten: beim Ziehen keine
+   Änderung der Breite oder zusätzliche Zeile. */
+@media (min-width:1101px){
+  .hand{grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+}
+@media (min-width:871px) and (max-width:1100px){
+  .hand{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+}
+@media (min-width:701px) and (max-width:870px){
+  .hand{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+}
+@media (max-width:700px){
+  .hand{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .hand-card{max-width:none;height:156px;min-height:156px;max-height:156px}
+}
+@media (max-width:360px){
+  .hand{grid-template-columns:minmax(0,190px)}
+  .hand-card{max-width:190px}
+}
+
+/* Die Aktionsleiste reserviert keine zweite, leere Kommandospalte. */
+.turn-action-controls{min-height:0}
+@media(min-width:701px){
+  .turn-action-controls:not(:has(
+    #selection:not([hidden]),
+    #phase-next:not([hidden]),
+    #direct-choices .choice-button,
+    #winner:not([hidden]),
+    #guide:not([hidden]),
+    #error:not(:empty)
+  )){display:none}
 }

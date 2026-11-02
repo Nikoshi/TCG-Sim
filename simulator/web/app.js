@@ -404,11 +404,13 @@ function renderHand() {
     pane.append(element("span", "hand-kind", catalog[id]?.attack == null ? "OPERATION" : "EINHEIT"));
     pane.append(element("span", "hand-stats", infoFor(id)));
     if (catalog[id]?.effect) {
-      // Kurzer Kartentext bleibt sichtbar; Hover/Fokus zeigt den vollständigen
-      // Text als Überlagerung, ohne ein zweites Dokumentfeld zu öffnen.
-      pane.dataset.effect = catalog[id].effect;
+      // Kompakte Vorschau: voller Text bleibt als Browser-Tooltip und
+      // über die Accessibility-Beschreibung der fokussierbaren Karte erhalten.
+      const effect = catalog[id].effect;
+      pane.title = effect;
+      pane.setAttribute("aria-description", effect);
       pane.append(element("span", "ability-flag", "◆ SONDERAKTION"));
-      pane.append(element("span", "ability-line", catalog[id].effect));
+      pane.append(element("span", "ability-line", effect));
     }
     const notReady = state.phase !== "Deploy";
     if (needsDiscard) pane.append(element("span", "tap-label", chosen ? "ZUM ABWERFEN GEWÄHLT" : "DIESE KARTE ABWERFEN ↗"));
@@ -817,6 +819,20 @@ async function boot() {
     await requirePlaytestCode();
     if (enforcePlaytestExpiry()) return;
     game = new WasmGame();
+    // Stabilisierte Höhen gelten nur für die aktuelle Breite. Ein Wechsel
+    // zwischen Desktop, Tablet und Hochformat darf keine leere Handfläche
+    // von der vorherigen Rasteraufteilung zurücklassen.
+    window.addEventListener("resize", () => {
+      if ($("game").hidden) return;
+      const hand = $("hand");
+      hand.style.minHeight = "0px";
+      largestHandHeight = Math.ceil(hand.scrollHeight);
+      hand.style.minHeight = largestHandHeight + "px";
+      const actionBar = document.querySelector(".turn-action");
+      actionBar.style.minHeight = "";
+      largestActionHeight = Math.ceil(actionBar.getBoundingClientRect().height);
+      actionBar.style.minHeight = largestActionHeight + "px";
+    });
     $("draw-deck").addEventListener("click", () => {
       executeChoice(choices.find(choice => actionType(choice.action) === "Supply"));
     });
