@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>RESTNETZ / Taktikterminal</title>
+  <meta name="description" content="Interaktiver Zwei-Personen-Regelsimulator mit Rust/WASM-Regelkern.">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Zum Spielfeld springen</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><span>R</span><b>_</b></div>
+        <div class="brand-words"><div class="brand-name">RESTNETZ<span class="brand-slash">/</span></div>
+          <div class="brand-sub">KONTROLLPROTOKOLL</div></div>
+      </div>
+      <div class="header-meta">
+        <span>REGELSIMULATOR <strong>0.2</strong></span>
+        <span class="header-note"><span class="status-dot"></span> RUST / WASM</span>
+        <span id="playtest-clock" class="playtest-clock" hidden aria-label="Verbleibende Playtest-Zeit">CODE --:--</span>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="container">
+    <div class="intro">
+      <div><p class="eyebrow">◆ TESTSTATION / ZWEI PERSONEN</p><h1>Das Netz <em>steuern.</em></h1></div>
+      <p class="intro-text">Ein gemeinsamer Rechner, zwei Fraktionen, ein Regelkern. Der Prototyp arbeitet mit festen Testdecks. Keine KI, keine versteckten Spielregeln im Browser.</p>
+    </div>
+
+    <section id="playtest-gate" class="playtest-gate" aria-labelledby="playtest-gate-title" tabindex="-1" hidden>
+      <p class="eyebrow">◆ RESTNETZ / PRIVATER PLAYTEST</p>
+      <h2 id="playtest-gate-title">Testcode eingeben</h2>
+      <p id="playtest-description">Dieser Regelsimulator ist für zeitlich begrenzte Tests vorgesehen. Der Code wird im privaten CI-Lauf erzeugt und ist maximal 30 Minuten gültig.</p>
+      <form id="playtest-form" autocomplete="off">
+        <label for="playtest-code">ZUGANGSCODE</label>
+        <div class="playtest-input-row">
+          <input id="playtest-code" name="access-code" type="text" inputmode="text" autocapitalize="off" spellcheck="false" autocomplete="off" required maxlength="128">
+          <button id="playtest-submit" type="submit">TESTSTATION FREISCHALTEN →</button>
+        </div>
+        <p id="playtest-error" class="playtest-error" role="alert" aria-live="polite"></p>
+      </form>
+      <small>Kein Benutzerkonto und kein echter Zugriffsschutz auf die öffentlich ausgelieferten Dateien.</small>
+    </section>
+    <div id="boot" class="boot" role="status">REGELKERN INITIALISIEREN …</div>
+    <section id="handoff" class="handoff" hidden aria-labelledby="handoff-title">
+      <p class="eyebrow">◆ DIENSTÜBERGABE</p>
+      <h2 id="handoff-title">Rechner übergeben</h2>
+      <p id="handoff-text">Die nächste Person ist am Zug.</p>
+      <button id="handoff-confirm" class="line-button" type="button">Handkarten anzeigen →</button>
+    </section>
+    <div id="game" hidden>
+      <div class="turn-strip" id="turn-strip" data-faction="0">
+        <div class="active-banner"><span class="small-label">● AM ZUG</span><strong id="active-name">–</strong></div>
+        <div><span class="small-label">ZUG</span><strong id="turn-number">–</strong></div>
+        <div><span class="small-label">PHASE</span><strong id="phase-name">–</strong></div>
+        <button id="reset" class="line-button" type="button">Testpartie zurücksetzen</button>
+      </div>
+
+      <section class="turn-action" aria-labelledby="turn-action-heading">
+        <div class="turn-action-copy">
+          <span class="step-index" id="step-index">01 / VERSORGUNG</span>
+          <h2 id="turn-action-heading">Was jetzt?</h2>
+          <p id="turn-instruction" role="status" aria-live="polite">Ziehe deine nächste Karte.</p>
+          <p id="draw-feedback" class="draw-feedback" aria-live="polite"></p>
+        </div>
+
+        <div class="turn-action-controls" aria-label="Kontextaktionen">
+          <div id="winner" class="winner" hidden></div>
+          <div id="guide" class="guide" role="status" aria-live="polite">Wähle eine Handkarte.</div>
+          <div id="selection" class="selection" hidden>
+            <p id="selection-title" class="selection-title"></p>
+            <button id="cancel-selection" class="line-button" type="button">Auswahl ändern</button>
+          </div>
+          <div id="direct-choices" class="direct-choices" aria-label="Mögliche Aktionen"></div>
+          <div id="action-explain" class="action-explain" hidden aria-live="polite"></div>
+          <button id="confirm-choice" class="primary-button" type="button" hidden>AKTION BESTÄTIGEN →</button>
+          <button id="cancel-pending" class="cancel-pending" type="button" hidden>Andere Aktion wählen</button>
+          <button id="phase-next" class="primary-button" type="button" hidden></button>
+          <p id="error" class="error-message" role="alert" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <section class="hand-panel" aria-labelledby="hand-title">
+        <div class="hand-top">
+          <div class="section-heading"><h2 id="hand-title">Handkarten <span class="section-kicker">/ aktiver Dienst</span></h2><span id="hand-count">–</span></div>
+          <div class="pile-controls" aria-label="Kartenstapel">
+            <button id="draw-deck" class="draw-deck pile-button" type="button">
+              <span class="draw-deck-icon" aria-hidden="true">RN</span>
+              <span class="draw-deck-copy"><strong id="draw-button-label">Karte ziehen</strong>
+                <small id="deck-remaining">Nachziehstapel · 25 Karten</small></span>
+            </button>
+            <div id="discard-zone" class="discard-zone pile-display" aria-label="Eigener Ablagestapel" aria-live="polite">
+              <span class="discard-stack-art" aria-hidden="true">RN</span>
+              <span class="discard-copy">
+                <strong>ABLAGESTAPEL <span id="discard-count">0 Karten</span></strong>
+                <small id="discard-last">Noch keine Karten abgelegt.</small>
+              </span>
+              <button id="discard-convert" class="pile-convert" type="button" hidden>
+                Ausgewählte Karte ablegen · +1 Energie ↗
+              </button>
+
+            </div>
+          </div>
+        </div>
+        <div id="hand" class="hand"></div>
+      </section>
+
+      <div class="workspace">
+        <div>
+          <section class="board" aria-labelledby="board-title">
+            <div class="section-heading"><h2 id="board-title">Infrastruktur / Lageplan</h2><span>MAX 2 EINHEITEN JE PERSON UND KNOTEN</span></div>
+            <div class="board-grid" id="nodes"></div>
+            <div class="section-heading scores-heading"><h2>Fraktionen / Status</h2><span>LP · NP · EN</span></div>
+            <div class="players" id="players"></div>
+          </section>
+        </div>
+
+
+      </div>
+      <details class="simulator-tools">
+        <summary>Protokoll und erweiterte Steuerung</summary>
+        <div class="simulator-tools-content">
+          <details class="advanced" id="advanced">
+            <summary>Erweiterte Steuerung / alle gültigen Aktionen</summary>
+            <div id="group-select" class="action-groups" aria-label="Aktionsarten"></div>
+            <label class="input-label" for="action-select">AKTION AUSWÄHLEN</label>
+            <select id="action-select" aria-describedby="selection-note"></select>
+            <p id="selection-note" class="selection-note">Zum Ausführen bestätigen.</p>
+            <button id="execute" class="line-button" type="button">Ausgewählte Aktion ausführen →</button>
+          </details>
+          <section class="log-panel" aria-label="Ereignisprotokoll">
+            <div class="log-heading">LETZTE MELDUNG</div>
+            <p id="latest-event" class="latest-event">Testpartie eingerichtet.</p>
+            <details class="event-history"><summary>Ältere Ereignisse</summary><ol id="events"></ol></details>
+          </section>
+          <a class="tutorial-link" href="https://github.com/Nikoshi/TCG/pull/16">REGELN LERNEN / TUTORIAL ↗</a>
+        </div>
+      </details>
+
+      <p class="footnote"><strong>TESTBETRIEB.</strong> Die Starthände und die Kartenreihenfolge sind bewusst fest vorgegeben; noch nicht entschiedene Sonderregeln fehlen. Mit Zurücksetzen beginnt dieselbe Partie erneut.</p>
+    </div>
+  </main>
+  <dialog id="discard-dialog" class="discard-dialog"
+    aria-labelledby="discard-dialog-title" aria-describedby="discard-dialog-description">
+    <div class="discard-dialog-body">
+      <p class="discard-dialog-kicker">RESTNETZ / ABLAGE BESTÄTIGEN</p>
+      <h2 id="discard-dialog-title">Karte ablegen?</h2>
+      <div class="discard-dialog-route">
+        <div class="discard-dialog-card">
+          <small>AUS DEINER HAND</small>
+          <strong id="discard-dialog-card">–</strong>
+        </div>
+        <span aria-hidden="true" class="discard-dialog-arrow">→</span>
+        <div class="discard-dialog-destination">
+          <span class="discard-dialog-stack" aria-hidden="true">RN</span>
+          <span>ABLAGESTAPEL</span>
+        </div>
+      </div>
+      <p id="discard-dialog-description">Bestätige den Ablagevorgang.</p>
+      <p id="discard-dialog-error" class="error-message" role="alert" hidden></p>
+      <div class="discard-dialog-actions">
+        <button id="discard-dialog-cancel" class="discard-dialog-cancel" type="button">Abbrechen</button>
+        <button id="discard-dialog-confirm" class="discard-dialog-confirm" type="button">Karte ablegen →</button>
+      </div>
+    </div>
+  </dialog>
+  <dialog id="action-dialog" class="discard-dialog action-dialog"
+    aria-labelledby="action-dialog-title" aria-describedby="action-dialog-description">
+    <div class="discard-dialog-body">
+      <p class="discard-dialog-kicker">RESTNETZ / AKTION BESTÄTIGEN</p>
+      <h2 id="action-dialog-title">Aktion ausführen?</h2>
+      <p id="action-dialog-description" class="action-dialog-description">–</p>
+      <p id="action-dialog-detail" class="action-dialog-detail" hidden></p>
+      <p id="action-dialog-error" class="error-message" role="alert" hidden></p>
+      <div class="discard-dialog-actions">
+        <button id="action-dialog-cancel" class="discard-dialog-cancel" type="button">Abbrechen</button>
+        <button id="action-dialog-confirm" class="discard-dialog-confirm" type="button">Aktion ausführen →</button>
+      </div>
+    </div>
+  </dialog>
+  <footer class="container site-footer">
+    <span><strong>RN<span class="footer-slash">/</span>02</strong> · SPIELTEST / WASM</span>
+    <span>REGELQUELLE: <code>simulator/src/round.rs</code> · <code>docs/chapters/rules.tex</code></span>
+  </footer>
+</body>
+</html>
